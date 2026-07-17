@@ -377,17 +377,25 @@ const SUPABASE_URL = 'https://emtddcurmnmvbhgysldh.supabase.co';
     }
 
     function updateQrCode(silent = false) {
-      const url = normalizeQrUrl(qrUrlInput.value || window.location.href);
+      // Obtenemos la URL base limpia sin parámetros (?admin=1)
+      const cleanBaseUrl = window.location.origin + window.location.pathname;
+      
+      // Usamos el valor del input, y si está vacío, usamos la base limpia
+      const url = normalizeQrUrl(qrUrlInput.value || cleanBaseUrl);
+      
       if (!url) {
         showToast('Escribe la URL publica de la galeria');
         return;
       }
+      
       const qrSrc = qrApiBase + '?size=420x420&format=png&data=' + encodeURIComponent(url);
       qrImage.src = qrSrc;
       downloadQr.href = qrSrc;
+      
       qrNote.textContent = url.includes('127.0.0.1') || url.includes('localhost')
         ? 'Este QR es solo para pruebas en este computador. Para clientes, reemplazalo por la URL publica cuando publiquemos la galeria.'
         : 'Este QR abrira directo la galeria publicada: ' + url;
+        
       if (!silent) showToast('Codigo QR actualizado');
     }
 
