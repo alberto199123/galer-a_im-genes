@@ -74,12 +74,16 @@ const SUPABASE_URL = 'https://emtddcurmnmvbhgysldh.supabase.co';
       return message || 'Error desconocido de Supabase.';
     }
 
-    function syncMode() {
+   function syncMode() {
       document.body.classList.toggle('admin-mode', isAdminMode);
       modeToggle.textContent = isAdminMode ? 'Vista cliente' : 'Modo admin';
+      
       // Siempre usa la URL base limpia
       const cleanUrl = window.location.origin + window.location.pathname;
-      history.replaceState(null, '', nextUrl);
+      
+      // Corregido: usamos cleanUrl en lugar de nextUrl
+      history.replaceState(null, '', cleanUrl); 
+      
       if (qrUrlInput) qrUrlInput.value = cleanUrl;
       if (projectMessage) projectMessage.textContent = 'Conectado a Supabase: ' + SUPABASE_URL.replace('https://', '');
     }
