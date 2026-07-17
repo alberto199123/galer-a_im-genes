@@ -77,8 +77,8 @@ const SUPABASE_URL = 'https://emtddcurmnmvbhgysldh.supabase.co';
     function syncMode() {
       document.body.classList.toggle('admin-mode', isAdminMode);
       modeToggle.textContent = isAdminMode ? 'Vista cliente' : 'Modo admin';
+      // Siempre usa la URL base limpia
       const cleanUrl = window.location.origin + window.location.pathname;
-      const nextUrl = isAdminMode ? cleanUrl + '?admin=1' : cleanUrl;
       history.replaceState(null, '', nextUrl);
       if (qrUrlInput) qrUrlInput.value = cleanUrl;
       if (projectMessage) projectMessage.textContent = 'Conectado a Supabase: ' + SUPABASE_URL.replace('https://', '');
