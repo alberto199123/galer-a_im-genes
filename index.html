@@ -102,7 +102,11 @@
             </div>
           </form>
 
-          <div class="qr-panel" id="qrPanel">
+          
+          </div>
+        </aside>
+
+        <div class="qr-panel" id="qrPanel">
             <h2 class="panel-title">QR para clientes</h2>
             <p class="panel-copy">Cuando la galeria este publicada, pega aqui la URL final para crear un QR que abra directo esta pagina.</p>
             <div class="field">
@@ -110,7 +114,7 @@
               <input id="qrUrlInput" type="text" placeholder="https://tusitio.com/galeria" />
             </div>
             <div class="form-actions">
-              <button class="btn btn-primary" id="generateQr" type="button">Generar codigo QR</button>
+              <button class="btn btn-primary" admin-only" id="generateQr" type="button">Generar codigo QR</button>
               <a class="btn btn-secondary" id="downloadQr" href="#" download="qr-galeria-trabajos.png">Descargar QR</a>
             </div>
             <div class="qr-preview">
@@ -118,9 +122,6 @@
             </div>
             <p class="qr-note" id="qrNote">Importante: un QR con localhost o 127.0.0.1 solo abre en este computador. Para clientes necesitamos una URL publicada.</p>
           </div>
-          </div>
-        </aside>
-
         <section aria-label="Trabajos cargados">
           <div class="gallery-head">
             <div>
