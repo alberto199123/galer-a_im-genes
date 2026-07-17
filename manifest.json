@@ -1,0 +1,15 @@
+{
+  "name": "Galeria de Trabajos",
+  "short_name": "Galeria",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#fbfbff",
+  "theme_color": "#2563ff",
+  "icons": [
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

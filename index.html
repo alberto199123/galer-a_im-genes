@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Galeria de Trabajos</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.json">
+</head>
+<body>
+  <button class="mode-toggle" id="modeToggle" type="button">Modo admin</button>
+  <main class="page">
+    <section class="hero" aria-label="Presentacion de galeria">
+      <div class="intro">
+        <div>
+          <div class="brand-row">
+            <div class="brand-mark" aria-label="Marca">AT</div>
+            <div class="status-pill"><span class="status-dot"></span>Portafolio disponible</div>
+          </div>
+          <h1>Galeria de trabajos</h1>
+          <p class="lead">Trabajos realizados, presentados de forma simple, limpia y directa.</p>
+          <div class="hero-actions">
+            <button class="btn btn-primary admin-only" id="addShortcut" type="button">+ Agregar nueva foto</button>
+            <button class="btn btn-secondary" id="nextShortcut" type="button">Ver siguiente trabajo</button>
+            <button class="btn btn-secondary admin-only" id="qrShortcut" type="button">Generar QR</button>
+          </div>
+        </div>
+        <div class="stats" aria-label="Resumen de galeria">
+          <div class="stat"><strong id="totalCount">0</strong><span>trabajos cargados</span></div>
+          <div class="stat"><strong>Zoom</strong><span>transicion llamativa</span></div>
+          <div class="stat admin-only"><strong>Admin</strong><span>carga y QR privado</span></div>
+        </div>
+      </div>
+
+      <article class="showcase" aria-live="polite">
+        <div class="nav-controls">
+          <button class="icon-btn" id="prevBtn" type="button" title="Trabajo anterior" aria-label="Trabajo anterior">‹</button>
+          <button class="icon-btn" id="nextBtn" type="button" title="Trabajo siguiente" aria-label="Trabajo siguiente">›</button>
+        </div>
+        <img class="featured-img" id="featuredImage" alt="Trabajo destacado" />
+        <div class="featured-info">
+          <span class="featured-kicker">Proyecto destacado</span>
+          <h2 class="featured-title" id="featuredTitle">Cargando galeria</h2>
+          <p id="featuredDescription">Agrega tus trabajos para comenzar.</p>
+        </div>
+      </article>
+    </section>
+
+    <section class="content-band">
+      <div class="workspace">
+        <aside class="panel form-panel admin-only" aria-label="Formulario para agregar trabajos">
+          <div class="login-panel" id="loginPanel">
+            <h2 class="panel-title">Acceso administrador</h2>
+            <p class="panel-copy">Inicia sesion para subir, borrar y administrar las imagenes guardadas en Supabase.</p>
+            <div class="field">
+              <label for="adminEmail">Correo</label>
+              <input id="adminEmail" type="text" autocomplete="email" placeholder="tu-correo@ejemplo.com" />
+            </div>
+            <div class="field">
+              <label for="adminPassword">Contrasena</label>
+              <input id="adminPassword" type="password" autocomplete="current-password" placeholder="Contrasena" />
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" id="loginBtn" type="button">Entrar</button>
+              <button class="btn btn-secondary" id="magicLinkBtn" type="button">Enviar enlace de acceso</button>
+            </div>
+            <p class="qr-note" id="loginMessage"></p>
+            <p class="qr-note" id="projectMessage"></p>
+          </div>
+
+          <div class="admin-secure">
+            <h2 class="panel-title">Agregar trabajo</h2>
+            <p class="panel-copy">Carga una imagen, escribe un titulo claro y suma una descripcion breve del resultado, materiales o detalles del servicio.</p>
+            <button class="btn btn-secondary" id="logoutBtn" type="button" style="width:100%;margin-bottom:14px;">Cerrar sesion</button>
+
+          <form id="photoForm">
+            <label class="file-drop" for="photoInput">
+              <span id="fileLabel">Seleccionar imagen</span>
+              <small>JPG, PNG o WEBP. La foto queda guardada en este navegador.</small>
+              <input id="photoInput" type="file" accept="image/*" required />
+            </label>
+            <div class="upload-progress" id="uploadProgress" aria-live="polite">
+              <div class="upload-track"><span id="uploadProgressFill"></span></div>
+              <small id="uploadProgressText">Preparando imagen...</small>
+            </div>
+
+            <div class="field" style="margin-top: 14px;">
+              <label for="titleInput">Titulo del trabajo</label>
+              <input id="titleInput" type="text" maxlength="60" placeholder="Ej: Instalacion completa en cocina" required />
+            </div>
+
+            <div class="field">
+              <label for="descriptionInput">Descripcion</label>
+              <textarea id="descriptionInput" maxlength="220" placeholder="Describe el trabajo, el acabado, los materiales o el problema que resolviste." required></textarea>
+            </div>
+
+            <div class="form-actions">
+              <button class="btn btn-primary" type="submit">+ Agregar a la galeria</button>
+              <button class="btn btn-secondary" id="loadDemo" type="button">Restaurar ejemplos</button>
+              <button class="btn btn-danger" id="clearGallery" type="button">Limpiar galeria</button>
+            </div>
+          </form>
+
+          <div class="qr-panel" id="qrPanel">
+            <h2 class="panel-title">QR para clientes</h2>
+            <p class="panel-copy">Cuando la galeria este publicada, pega aqui la URL final para crear un QR que abra directo esta pagina.</p>
+            <div class="field">
+              <label for="qrUrlInput">URL publica de la galeria</label>
+              <input id="qrUrlInput" type="text" placeholder="https://tusitio.com/galeria" />
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" id="generateQr" type="button">Generar codigo QR</button>
+              <a class="btn btn-secondary" id="downloadQr" href="#" download="qr-galeria-trabajos.png">Descargar QR</a>
+            </div>
+            <div class="qr-preview">
+              <img id="qrImage" alt="Codigo QR de la galeria" />
+            </div>
+            <p class="qr-note" id="qrNote">Importante: un QR con localhost o 127.0.0.1 solo abre en este computador. Para clientes necesitamos una URL publicada.</p>
+          </div>
+          </div>
+        </aside>
+
+        <section aria-label="Trabajos cargados">
+          <div class="gallery-head">
+            <div>
+              <h2>Trabajos realizados</h2>
+              <p>Selecciona cualquier imagen para verla grande con efecto de zoom.</p>
+            </div>
+          </div>
+          <div class="empty" id="emptyState">Todavia no hay trabajos cargados. Agrega la primera foto desde el formulario.</div>
+          <div class="gallery-grid" id="galleryGrid"></div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="lightbox" id="lightbox" aria-modal="true" role="dialog" aria-label="Vista completa de imagen">
+    <div class="lightbox-counter" id="lightboxCounter">1 / 1</div>
+    <button class="lightbox-close" id="lightboxClose" type="button" aria-label="Cerrar vista completa">x</button>
+    <button class="lightbox-nav lightbox-prev" id="lightboxPrev" type="button" aria-label="Imagen anterior">&lsaquo;</button>
+    <img id="lightboxImage" alt="Imagen en vista completa" />
+    <button class="lightbox-nav lightbox-next" id="lightboxNext" type="button" aria-label="Imagen siguiente">&rsaquo;</button>
+    <div class="lightbox-caption" id="lightboxCaption"></div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
