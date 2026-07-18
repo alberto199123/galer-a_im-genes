@@ -63,7 +63,8 @@
     }
 
     .brand-mark {
-      width: 42px;
+      width: auto;
+      padding: 0 12px;
       height: 42px;
       display: grid;
       place-items: center;
@@ -256,8 +257,6 @@
 
     body:not(.admin-mode) .lead,
     body:not(.admin-mode) .stats,
-    body:not(.admin-mode) #featuredDescription,
-    body:not(.admin-mode) .card-info span,
     body:not(.admin-mode) .gallery-head p {
       display: none;
     }
