@@ -3,7 +3,7 @@ const SUPABASE_URL = 'https://emtddcurmnmvbhgysldh.supabase.co';
     const GALLERY_BUCKET = 'galeria-trabajos';
     const GALLERY_TABLE = 'trabajos';
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
-    let isAdminMode = false;
+    let isAdminMode = new URLSearchParams(window.location.search).get('admin') === '1';
     document.body.classList.toggle('admin-mode', isAdminMode);
     const qrApiBase = 'https://api.qrserver.com/v1/create-qr-code/';
     const demoItems = [
