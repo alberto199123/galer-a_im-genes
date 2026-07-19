@@ -1,4 +1,4 @@
-const CACHE_NAME = 'galeria-v4'; /* Version cambiada a v4 */
+const CACHE_NAME = 'galeria-v5';
 const ASSETS = [
   './',
   './index.html',
