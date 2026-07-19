@@ -1,4 +1,4 @@
-const CACHE_NAME = 'galeria-v3';
+const CACHE_NAME = 'galeria-v4'; /* Version cambiada a v4 */
 const ASSETS = [
   './',
   './index.html',
@@ -10,6 +10,14 @@ const ASSETS = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) => Promise.all(keys.map(key => {
+      if (key !== CACHE_NAME) return caches.delete(key);
+    })))
+  );
 });
 
 self.addEventListener('fetch', (event) => {
