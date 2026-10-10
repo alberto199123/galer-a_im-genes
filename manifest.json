@@ -1,15 +1,42 @@
 {
-  "name": "Galeria de Trabajos",
-  "short_name": "Galeria",
+  "name": "MrGlass - Galeria de Trabajos",
+  "short_name": "MrGlass",
+  "description": "Vidrieria y aluminio a medida en Chillan. Galeria de trabajos realizados y cotizacion por WhatsApp.",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#fbfbff",
-  "theme_color": "#2563ff",
+  "orientation": "any",
+  "background_color": "#faf8fc",
+  "theme_color": "#6d28d9",
+  "lang": "es-CL",
+  "dir": "ltr",
+  "categories": ["business", "shopping", "lifestyle"],
   "icons": [
     {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png"
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Ver galeria",
+      "short_name": "Galeria",
+      "description": "Ver los trabajos realizados",
+      "url": "./index.html"
+    },
+    {
+      "name": "Cotizar por WhatsApp",
+      "short_name": "Cotizar",
+      "description": "Contactar directamente por WhatsApp",
+      "url": "https://wa.me/56986341138?text=Hola%20MrGlass%2C%20quiero%20cotizar%20un%20trabajo"
     }
   ]
 }
