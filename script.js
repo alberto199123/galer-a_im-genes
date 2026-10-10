@@ -26,6 +26,7 @@ let toastTimer;
 let touchStartX = 0;
 let touchStartY = 0;
 let isLoadingWorks = false;
+let editingWorkId = null;  // null = modo agregar; UUID = modo editar
 
 // ----- Referencias DOM -----
 const featuredImage = document.getElementById('featuredImage');
@@ -74,6 +75,15 @@ const lightboxQuote = document.getElementById('lightboxQuote');
 const lightboxImg = document.getElementById('lightboxImage');
 const filterChips = document.getElementById('filterChips');
 const showcaseSkeleton = document.getElementById('showcaseSkeleton');
+// Referencias de edicion
+const formTitle = document.getElementById('formTitle');
+const formCopy = document.getElementById('formCopy');
+const formHeader = document.getElementById('formHeader');
+const editBadge = document.getElementById('editBadge');
+const fileHint = document.getElementById('fileHint');
+const imageCurrentHint = document.getElementById('imageCurrentHint');
+const imageCurrentLink = document.getElementById('imageCurrentLink');
+const cancelEditBtn = document.getElementById('cancelEditBtn');
 const footerYear = document.getElementById('footerYear');
 const footerAdminHint = document.getElementById('footerAdminHint');
 
@@ -88,7 +98,7 @@ const modalCancel = document.getElementById('modalCancel');
 const qrApiBase = 'https://api.qrserver.com/v1/create-qr-code/';
 
 // ----- Categorias validas -----
-const VALID_CATEGORIES = ['vidrios', 'aluminio', 'mamparas', 'espejos'];
+const VALID_CATEGORIES = ['vidrios', 'aluminio', 'mamparas', 'espejos', 'otros'];
 const CATEGORY_LABELS = {
   vidrios: 'Vidrios',
   aluminio: 'Aluminio',
@@ -381,6 +391,19 @@ function renderGallery() {
     catBadge.textContent = CATEGORY_LABELS[item.category] || 'Otros';
     card.appendChild(catBadge);
 
+    // Boton editar (solo admin autenticado) - al lado del eliminar
+    const editBtn = document.createElement('button');
+    editBtn.className = 'card-edit';
+    editBtn.type = 'button';
+    editBtn.title = 'Editar';
+    editBtn.setAttribute('aria-label', 'Editar trabajo ' + item.title);
+    editBtn.innerHTML = '<svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM2 14.121V18h3.879l9-9-3.879-3.879-9 9z"/></svg>';
+    editBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      startEditWork(works.indexOf(item));
+    });
+    card.appendChild(editBtn);
+
     // Boton eliminar (solo admin autenticado)
     const removeBtn = document.createElement('button');
     removeBtn.className = 'card-remove';
@@ -536,25 +559,165 @@ photoForm.addEventListener('submit', async (event) => {
   const description = descriptionInput.value.trim();
   const category = categoryInput.value;
 
-  if (!file || !title || !description) {
-    showToast('Completa imagen, titulo y descripcion');
-    return;
-  }
-  if (!isValidImageFile(file)) {
-    showToast('Archivo invalido. Solo JPG, PNG o WEBP (max 8MB)');
+  // Validacion comun (en modo edicion la imagen es opcional)
+  if (!title || !description) {
+    showToast('Completa titulo y descripcion');
     return;
   }
   if (!VALID_CATEGORIES.includes(category)) {
     showToast('Selecciona una categoria valida');
     return;
   }
+  // En modo agregar, la imagen es obligatoria
+  if (!editingWorkId && !file) {
+    showToast('Selecciona una imagen');
+    return;
+  }
+  // Si subio archivo, validar que sea imagen valida
+  if (file && !isValidImageFile(file)) {
+    showToast('Archivo invalido. Solo JPG, PNG o WEBP (max 8MB)');
+    return;
+  }
 
   submitBtn.disabled = true;
-  submitBtn.textContent = 'Subiendo...';
-  await addWorkFromFile(file, title, description, category);
-  submitBtn.disabled = false;
-  submitBtn.textContent = '+ Agregar a la galeria';
+
+  if (editingWorkId) {
+    // MODO EDITAR
+    submitBtn.textContent = 'Guardando...';
+    await updateWork(editingWorkId, { file, title, description, category });
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Guardar cambios';
+  } else {
+    // MODO AGREGAR
+    submitBtn.textContent = 'Subiendo...';
+    await addWorkFromFile(file, title, description, category);
+    submitBtn.disabled = false;
+    submitBtn.textContent = '+ Agregar a la galeria';
+  }
 });
+
+// Cancelar edicion y volver a modo agregar
+cancelEditBtn.addEventListener('click', () => {
+  cancelEdit();
+});
+
+function startEditWork(index) {
+  const item = works[index];
+  if (!item) return;
+
+  editingWorkId = item.id;
+
+  // Cargar datos en el formulario
+  titleInput.value = item.title;
+  descriptionInput.value = item.description;
+  categoryInput.value = VALID_CATEGORIES.includes(item.category) ? item.category : 'otros';
+
+  // Imagen: no exigir nueva; mostrar hint con link a la actual
+  photoInput.removeAttribute('required');
+  fileLabel.textContent = 'Seleccionar nueva imagen (opcional)';
+  fileHint.textContent = 'Solo sube una nueva imagen si quieres reemplazar la actual.';
+  imageCurrentHint.hidden = false;
+  imageCurrentLink.href = item.image;
+  imagePreview.hidden = true;
+  previewImg.src = '';
+
+  // UI: cambiar titulos y mostrar badge + boton cancelar
+  formTitle.textContent = 'Editar trabajo';
+  formCopy.textContent = 'Modifica los campos que quieras actualizar. La imagen es opcional: si no subes una nueva, se mantiene la actual.';
+  editBadge.hidden = false;
+  submitBtn.textContent = 'Guardar cambios';
+  cancelEditBtn.hidden = false;
+
+  // Scroll al formulario (util en mobile)
+  document.getElementById('photoForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  titleInput.focus();
+  showToast('Editando: ' + item.title);
+}
+
+function cancelEdit() {
+  editingWorkId = null;
+  photoForm.reset();
+  clearImagePreview();
+  photoInput.setAttribute('required', '');
+  fileLabel.textContent = 'Seleccionar imagen';
+  fileHint.textContent = 'JPG, PNG o WEBP. Arrastra tu foto aqui o haz click.';
+  imageCurrentHint.hidden = true;
+  imageCurrentLink.href = '#';
+  formTitle.textContent = 'Agregar trabajo';
+  formCopy.textContent = 'Carga una imagen, escribe un titulo claro, elige la categoria y suma una descripcion breve.';
+  editBadge.hidden = true;
+  submitBtn.textContent = '+ Agregar a la galeria';
+  cancelEditBtn.hidden = true;
+}
+
+async function updateWork(workId, { file, title, description, category }) {
+  try {
+    setUploadProgress(15, 'Actualizando datos...');
+
+    // Buscar el trabajo actual para saber image_path viejo
+    const current = works.find(w => w.id === workId);
+    if (!current) throw new Error('Trabajo no encontrado');
+
+    let newImagePath = current.path;
+    let newImageUrl = current.image;
+
+    // Si el usuario subio una nueva imagen, subirla y preparar eliminacion de la vieja
+    if (file) {
+      setUploadProgress(35, 'Subiendo nueva imagen...');
+      const filePath = safeFileName(file);
+      const { error: uploadError } = await supabaseClient.storage
+        .from(GALLERY_BUCKET)
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: file.type
+        });
+      if (uploadError) throw uploadError;
+
+      const { data: publicData } = supabaseClient.storage.from(GALLERY_BUCKET).getPublicUrl(filePath);
+      newImagePath = filePath;
+      newImageUrl = publicData.publicUrl;
+    }
+
+    setUploadProgress(72, 'Guardando cambios en la base de datos...');
+    const { error: updateError } = await supabaseClient
+      .from(GALLERY_TABLE)
+      .update({
+        titulo: title,
+        descripcion: description,
+        categoria: category,
+        image_path: newImagePath,
+        image_url: newImageUrl
+      })
+      .eq('id', workId);
+
+    if (updateError) throw updateError;
+
+    // Si se subio imagen nueva Y habia una vieja con path, borrar la vieja de Storage
+    if (file && current.path) {
+      try {
+        await supabaseClient.storage.from(GALLERY_BUCKET).remove([current.path]);
+      } catch (e) {
+        console.warn('No se pudo borrar la imagen vieja de Storage:', e);
+      }
+    }
+
+    setUploadProgress(100, 'Cambios guardados');
+    cancelEdit();
+    await loadWorks();
+    hideUploadProgress();
+    showToast('Trabajo actualizado');
+  } catch (error) {
+    console.error('Error actualizando trabajo:', error);
+    hideUploadProgress();
+    const msg = error && error.message ? error.message : '';
+    if (msg.includes('row-level security') || msg.includes('policy')) {
+      showToast('Error: RLS bloquea la actualizacion. Verifica sesion y politicas.');
+    } else {
+      showToast('No se pudo actualizar el trabajo');
+    }
+  }
+}
 
 async function addWorkFromFile(file, title, description, category) {
   try {
@@ -764,7 +927,10 @@ filterChips.addEventListener('click', (event) => {
 document.getElementById('prevBtn').addEventListener('click', () => setFeatured(activeIndex - 1));
 document.getElementById('nextBtn').addEventListener('click', () => setFeatured(activeIndex + 1));
 document.getElementById('nextShortcut').addEventListener('click', () => setFeatured(activeIndex + 1));
-document.getElementById('addShortcut').addEventListener('click', () => photoInput.click());
+document.getElementById('addShortcut').addEventListener('click', () => {
+  if (editingWorkId) cancelEdit();
+  photoInput.click();
+});
 document.getElementById('qrShortcut').addEventListener('click', () => {
   qrPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
   qrUrlInput.focus();
@@ -883,6 +1049,7 @@ magicLinkBtn.addEventListener('click', async () => {
 });
 
 logoutBtn.addEventListener('click', async () => {
+  if (editingWorkId) cancelEdit();
   await supabaseClient.auth.signOut();
   await refreshAuthState();
   showToast('Sesion cerrada');
