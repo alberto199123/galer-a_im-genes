@@ -702,12 +702,15 @@ input:focus, textarea:focus, select:focus {
 }
 
 /* ===== WORK CARD ===== */
+/* aspect-ratio hace que TODAS las cards tengan la misma proporcion,
+   evitando imagenes estiradas o cortadas en cualquier dispositivo */
 .work-card {
   position: relative;
   overflow: hidden;
   border-radius: var(--radius);
   background: var(--brand-soft);
-  min-height: 260px;
+  aspect-ratio: 4 / 3;
+  min-height: 0;           /* Override de cualquier min-height heredado */
   border: 1px solid var(--line);
   cursor: pointer;
   isolation: isolate;
@@ -717,10 +720,13 @@ input:focus, textarea:focus, select:focus {
   outline: 3px solid var(--brand);
   outline-offset: 3px;
 }
+/* Imagen con position:absolute para llenar la card sin deformarse,
+   object-fit:cover hace el recorte inteligente manteniendo proporciones */
 .work-card img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  min-height: 260px;
   object-fit: cover;
   display: block;
   transition: transform 500ms ease, filter 500ms ease;
@@ -801,6 +807,30 @@ input:focus, textarea:focus, select:focus {
 }
 .card-quote:hover { background: #1da851; transform: translateY(0) scale(1.05); text-decoration: none; color: #fff; }
 
+/* Boton editar (lápiz) - mismo tamaño que el eliminar pero a su izquierda */
+.card-edit {
+  position: absolute;
+  top: 10px;
+  right: 52px;  /* deja espacio para el boton eliminar a la derecha */
+  z-index: 4;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  color: #fff;
+  background: rgba(109, 40, 217, 0.85);
+  border: 1px solid rgba(255,255,255,0.22);
+  opacity: 0;
+  display: grid;
+  place-items: center;
+  transition: opacity 180ms ease, background 180ms ease, transform 180ms ease;
+}
+.work-card:hover .card-edit { opacity: 1; }
+.card-edit:hover {
+  background: var(--brand);
+  transform: scale(1.08);
+}
+.card-edit svg { display: block; }
+
 .card-remove {
   position: absolute;
   top: 10px;
@@ -817,6 +847,55 @@ input:focus, textarea:focus, select:focus {
 }
 .work-card:hover .card-remove { opacity: 1; }
 .card-remove:hover { background: var(--danger); }
+
+/* Ocultar botones editar/eliminar si no es admin autenticado */
+body:not(.is-authenticated) .card-edit { display: none !important; }
+
+/* ===== HEADER DEL FORMULARIO (con badge de edicion) ===== */
+.form-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+.form-header .panel-title { margin: 0; }
+
+.edit-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+  color: #422006;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.edit-badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #422006;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Hint de imagen actual en modo edicion */
+.image-current-hint {
+  margin: 8px 0 0;
+  padding: 8px 12px;
+  background: var(--brand-soft);
+  border: 1px solid var(--brand-light);
+  border-radius: var(--radius);
+  color: var(--brand-dark);
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+.image-current-hint a { font-weight: 700; }
+.image-current-hint[hidden] { display: none; }
 
 .empty {
   display: none;
@@ -1137,7 +1216,10 @@ input:focus, textarea:focus, select:focus {
   .intro, .showcase { min-height: auto; }
   .showcase { height: 62vh; min-height: 430px; }
   .admin-column { position: static; max-height: none; overflow-y: visible; }
-  .gallery-grid { grid-template-columns: repeat(2, 1fr); }
+  /* Selectores mas especificos para sobreescribir la regla body:not(.admin-mode) */
+  body:not(.admin-mode) .gallery-grid,
+  body.admin-mode .gallery-grid,
+  .gallery-grid { grid-template-columns: repeat(2, 1fr) !important; }
   .contact-wrap { grid-template-columns: 1fr; }
 }
 
@@ -1156,11 +1238,23 @@ input:focus, textarea:focus, select:focus {
   .lightbox-prev { left: 10px; }
   .lightbox-next { right: 10px; }
   .lightbox-caption { right: 18px; bottom: 90px; }
-  .gallery-grid { grid-template-columns: 1fr; }
-  .work-card, .work-card img { min-height: 300px; }
+  /* 1 columna en movil muy estrecho, 2 columnas a partir de 380px */
+  body:not(.admin-mode) .gallery-grid,
+  body.admin-mode .gallery-grid,
+  .gallery-grid { grid-template-columns: 1fr !important; }
+  .work-card { aspect-ratio: 4 / 3; }
   .whatsapp-fab-label { display: none; }
   .whatsapp-fab { padding: 14px; }
   .footer-wrap { flex-direction: column; text-align: center; }
+  /* Espacio extra al final de la galeria para que el FAB no tape la ultima card */
+  .gallery-grid { margin-bottom: 80px; }
+}
+
+/* Movil estrecho: 1 columna; moviles normales (>=380px): 2 columnas */
+@media (min-width: 380px) and (max-width: 640px) {
+  body:not(.admin-mode) .gallery-grid,
+  body.admin-mode .gallery-grid,
+  .gallery-grid { grid-template-columns: repeat(2, 1fr) !important; }
 }
 
 /* ===== IMPRESION ===== */
