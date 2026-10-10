@@ -1,32 +1,37 @@
+/* =====================================================
+   MrGlass - Galeria de Trabajos
+   Vidrieria y aluminio en Chillan
+   ===================================================== */
+
+// ----- Configuracion Supabase -----
+// La publishable key es segura en el cliente SIEMPRE Y CUANDO
+// tengas RLS (Row Level Security) activado en Supabase.
+// Ver README.md para instrucciones de configuracion.
 const SUPABASE_URL = 'https://emtddcurmnmvbhgysldh.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_7DhFAC_g6N3sQE2tf1ZWIg_UvaDzmjY';
 const GALLERY_BUCKET = 'galeria-trabajos';
 const GALLERY_TABLE = 'trabajos';
-const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
-let isAdminMode = new URLSearchParams(window.location.search).get('admin') === '1';
-document.body.classList.toggle('admin-mode', isAdminMode);
-const qrApiBase = 'https://api.qrserver.com/v1/create-qr-code/';
-const demoItems = [
-  {
-    title: 'Terminacion limpia en interior',
-    description: 'Proyecto presentado con lineas ordenadas, buen acabado y una entrega lista para revisar con el cliente.',
-    image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1400&q=85'
-  },
-  {
-    title: 'Detalle profesional de instalacion',
-    description: 'Trabajo enfocado en precision, limpieza del area y resultado final prolijo para generar confianza.',
-    image: 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=1400&q=85'
-  },
-  {
-    title: 'Resultado final para cliente',
-    description: 'Imagen destacada para mostrar avances, antes y despues o proyectos terminados con buena presencia visual.',
-    image: 'https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=1400&q=85'
-  }
-];
+const WHATSAPP_NUMBER = '56986341138';
+const WHATSAPP_DEFAULT_MSG = 'Hola MrGlass, vi tu galeria y quiero cotizar un trabajo';
 
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+// ----- Estado -----
+let isAdminMode = new URLSearchParams(window.location.search).get('admin') === '1'
+  || sessionStorage.getItem('mrglass_admin') === '1';
+let works = [];
+let activeIndex = 0;
+let currentFilter = 'all';
+let toastTimer;
+let touchStartX = 0;
+let touchStartY = 0;
+let isLoadingWorks = false;
+
+// ----- Referencias DOM -----
 const featuredImage = document.getElementById('featuredImage');
 const featuredTitle = document.getElementById('featuredTitle');
 const featuredDescription = document.getElementById('featuredDescription');
+const featuredCategory = document.getElementById('featuredCategory');
 const galleryGrid = document.getElementById('galleryGrid');
 const totalCount = document.getElementById('totalCount');
 const emptyState = document.getElementById('emptyState');
@@ -34,7 +39,13 @@ const photoForm = document.getElementById('photoForm');
 const photoInput = document.getElementById('photoInput');
 const titleInput = document.getElementById('titleInput');
 const descriptionInput = document.getElementById('descriptionInput');
+const categoryInput = document.getElementById('categoryInput');
 const fileLabel = document.getElementById('fileLabel');
+const fileDropZone = document.getElementById('fileDropZone');
+const imagePreview = document.getElementById('imagePreview');
+const previewImg = document.getElementById('previewImg');
+const previewRemove = document.getElementById('previewRemove');
+const submitBtn = document.getElementById('submitBtn');
 const toast = document.getElementById('toast');
 const modeToggle = document.getElementById('modeToggle');
 const qrUrlInput = document.getElementById('qrUrlInput');
@@ -59,12 +70,123 @@ const lightboxCounter = document.getElementById('lightboxCounter');
 const lightboxClose = document.getElementById('lightboxClose');
 const lightboxPrev = document.getElementById('lightboxPrev');
 const lightboxNext = document.getElementById('lightboxNext');
+const lightboxQuote = document.getElementById('lightboxQuote');
+const lightboxImg = document.getElementById('lightboxImage');
+const filterChips = document.getElementById('filterChips');
+const showcaseSkeleton = document.getElementById('showcaseSkeleton');
+const footerYear = document.getElementById('footerYear');
+const footerAdminHint = document.getElementById('footerAdminHint');
 
-let works = [];
-let activeIndex = 0;
-let toastTimer;
-let touchStartX = 0;
-let touchStartY = 0;
+// Modal generico
+const modalBackdrop = document.getElementById('modalBackdrop');
+const modalTitle = document.getElementById('modalTitle');
+const modalBody = document.getElementById('modalBody');
+const modalConfirm = document.getElementById('modalConfirm');
+const modalCancel = document.getElementById('modalCancel');
+
+// ----- Constantes QR -----
+const qrApiBase = 'https://api.qrserver.com/v1/create-qr-code/';
+
+// ----- Categorias validas -----
+const VALID_CATEGORIES = ['vidrios', 'aluminio', 'mamparas', 'espejos'];
+const CATEGORY_LABELS = {
+  vidrios: 'Vidrios',
+  aluminio: 'Aluminio',
+  mamparas: 'Mamparas',
+  espejos: 'Espejos',
+  otros: 'Otros'
+};
+
+// =====================================================
+// Utilidades de seguridad
+// =====================================================
+
+// Escapa texto para insertarlo en HTML de forma segura
+function escapeHtml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Valida que un archivo sea una imagen real por MIME type
+function isValidImageFile(file) {
+  if (!file) return false;
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+  if (!allowedTypes.includes(file.type)) return false;
+  // Tamano maximo: 8MB
+  if (file.size > 8 * 1024 * 1024) return false;
+  return true;
+}
+
+// Genera un nombre seguro para Storage
+function safeFileName(file) {
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+}
+
+// =====================================================
+// Modal generico (reemplaza confirm/alert nativos)
+// =====================================================
+
+let modalConfirmHandler = null;
+
+function showConfirmModal(title, body, confirmLabel) {
+  modalTitle.textContent = title;
+  modalBody.textContent = body;
+  modalConfirm.textContent = confirmLabel || 'Confirmar';
+  modalBackdrop.hidden = false;
+  // focus inicial para accesibilidad
+  setTimeout(() => modalCancel.focus(), 50);
+
+  return new Promise((resolve) => {
+    modalConfirmHandler = () => resolve(true);
+    modalCancelHandler = () => resolve(false);
+  });
+}
+
+let modalCancelHandler = null;
+
+modalConfirm.addEventListener('click', () => {
+  modalBackdrop.hidden = true;
+  if (modalConfirmHandler) modalConfirmHandler();
+  modalConfirmHandler = null;
+  modalCancelHandler = null;
+});
+
+modalCancel.addEventListener('click', () => {
+  modalBackdrop.hidden = true;
+  if (modalCancelHandler) modalCancelHandler();
+  modalConfirmHandler = null;
+  modalCancelHandler = null;
+});
+
+modalBackdrop.addEventListener('click', (e) => {
+  if (e.target === modalBackdrop) {
+    modalBackdrop.hidden = true;
+    if (modalCancelHandler) modalCancelHandler();
+    modalConfirmHandler = null;
+    modalCancelHandler = null;
+  }
+});
+
+// =====================================================
+// Toast
+// =====================================================
+
+function showToast(message) {
+  clearTimeout(toastTimer);
+  toast.textContent = message;
+  toast.classList.add('show');
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 2800);
+}
+
+// =====================================================
+// Auth Supabase
+// =====================================================
 
 function explainAuthError(message) {
   const lower = String(message || '').toLowerCase();
@@ -74,13 +196,34 @@ function explainAuthError(message) {
   return message || 'Error desconocido de Supabase.';
 }
 
+async function refreshAuthState() {
+  try {
+    const { data } = await supabaseClient.auth.getSession();
+    document.body.classList.toggle('is-authenticated', Boolean(data.session));
+  } catch (err) {
+    console.error('Error refrescando sesion:', err);
+  }
+}
+
+// =====================================================
+// Modo admin
+// =====================================================
+
 function syncMode() {
   document.body.classList.toggle('admin-mode', isAdminMode);
   modeToggle.textContent = isAdminMode ? 'Vista cliente' : 'Modo admin';
-  
+
+  // Persistir en sessionStorage para no perder el modo al navegar
+  if (isAdminMode) {
+    sessionStorage.setItem('mrglass_admin', '1');
+  } else {
+    sessionStorage.removeItem('mrglass_admin');
+  }
+
+  // Limpiar el ?admin=1 de la URL para no exponer el modo en shared links
   const cleanUrl = window.location.origin + window.location.pathname;
-  history.replaceState(null, '', cleanUrl); 
-  
+  history.replaceState(null, '', cleanUrl);
+
   if (qrUrlInput) qrUrlInput.value = cleanUrl;
   if (projectMessage) projectMessage.textContent = 'Conectado a Supabase: ' + SUPABASE_URL.replace('https://', '');
 }
@@ -91,48 +234,84 @@ modeToggle.addEventListener('click', () => {
   showToast(isAdminMode ? 'Modo administrador activo' : 'Vista cliente activa');
 });
 
+// Atajo de teclado: Ctrl+Shift+A activa modo admin
+document.addEventListener('keydown', (event) => {
+  if (event.ctrlKey && event.shiftKey && (event.key === 'A' || event.key === 'a')) {
+    event.preventDefault();
+    isAdminMode = !isAdminMode;
+    syncMode();
+    showToast(isAdminMode ? 'Modo administrador activo (Ctrl+Shift+A)' : 'Vista cliente activa');
+  }
+  // Escape en modales
+  if (event.key === 'Escape' && !modalBackdrop.hidden) {
+    modalBackdrop.hidden = true;
+    if (modalCancelHandler) modalCancelHandler();
+    modalConfirmHandler = null;
+    modalCancelHandler = null;
+  }
+});
+
+// Hint discreto en el footer: click activa admin tambien
+footerAdminHint.addEventListener('click', () => {
+  isAdminMode = !isAdminMode;
+  syncMode();
+  showToast(isAdminMode ? 'Modo administrador activo' : 'Vista cliente activa');
+});
+
+// =====================================================
+// Datos de la galeria
+// =====================================================
+
 function mapTrabajo(row) {
   return {
     id: row.id,
-    title: row.titulo,
+    title: row.titulo || '',
     description: row.descripcion || '',
     image: row.image_url,
     path: row.image_path,
+    category: VALID_CATEGORIES.includes(row.categoria) ? row.categoria : 'otros',
     order: row.orden || 0
   };
 }
 
 async function loadWorks() {
-  const { data, error } = await supabaseClient
-    .from(GALLERY_TABLE)
-    .select('id,titulo,descripcion,image_url,image_path,orden,activo,created_at')
-    .eq('activo', true)
-    .order('orden', { ascending: true })
-    .order('created_at', { ascending: false });
+  if (isLoadingWorks) return;
+  isLoadingWorks = true;
+  showcaseSkeleton.classList.remove('hidden');
 
-  if (error) {
-    console.error('Error cargando galeria:', error);
+  try {
+    const { data, error } = await supabaseClient
+      .from(GALLERY_TABLE)
+      .select('id,titulo,descripcion,image_url,image_path,categoria,orden,activo,created_at')
+      .eq('activo', true)
+      .order('orden', { ascending: true })
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error cargando galeria:', error);
+      works = [];
+      showToast('No se pudo cargar la galeria desde Supabase');
+    } else {
+      works = (data || []).map(mapTrabajo);
+    }
+
+    activeIndex = 0;
+    setFeatured(0);
+    renderGallery();
+  } catch (err) {
+    console.error('Excepcion cargando galeria:', err);
     works = [];
-    showToast('No se pudo cargar la galeria desde Supabase');
-  } else {
-    works = (data || []).map(mapTrabajo);
+    setFeatured(0);
+    renderGallery();
+  } finally {
+    isLoadingWorks = false;
+    setTimeout(() => showcaseSkeleton.classList.add('hidden'), 200);
   }
-
-  activeIndex = 0;
-  setFeatured(0);
 }
 
-async function refreshAuthState() {
-  const { data } = await supabaseClient.auth.getSession();
-  document.body.classList.toggle('is-authenticated', Boolean(data.session));
-}
-
-function showToast(message) {
-  clearTimeout(toastTimer);
-  toast.textContent = message;
-  toast.classList.add('show');
-  toastTimer = setTimeout(() => toast.classList.remove('show'), 2300);
-}
+// =====================================================
+// Render seguro (sin innerHTML con datos externos)
+// =====================================================
 
 function animateFeatured() {
   featuredImage.classList.remove('zooming');
@@ -140,6 +319,135 @@ function animateFeatured() {
   featuredImage.classList.add('zooming');
   setTimeout(() => featuredImage.classList.remove('zooming'), 760);
 }
+
+function setFeatured(index) {
+  const filtered = getFilteredWorks();
+
+  if (!filtered.length) {
+    featuredImage.removeAttribute('src');
+    featuredImage.alt = 'Sin trabajos cargados';
+    featuredTitle.textContent = 'Tu proximo trabajo destacado';
+    featuredDescription.textContent = 'Agrega una foto con descripcion para verla en este espacio principal.';
+    featuredCategory.textContent = '';
+    totalCount.textContent = works.length;
+    emptyState.style.display = works.length === 0 ? 'block' : 'none';
+    if (works.length > 0) {
+      // Hay trabajos pero el filtro no tiene resultados
+      emptyState.style.display = 'block';
+      emptyState.textContent = 'No hay trabajos en esta categoria todavia.';
+    } else {
+      emptyState.textContent = 'Todavia no hay trabajos cargados. Cuando el administrador suba el primer trabajo, aparecera aqui.';
+    }
+    return;
+  }
+
+  activeIndex = (index + filtered.length) % filtered.length;
+  const item = filtered[activeIndex];
+  featuredImage.src = item.image;
+  featuredImage.alt = item.title;
+  featuredTitle.textContent = item.title;
+  featuredDescription.textContent = item.description;
+  featuredCategory.textContent = CATEGORY_LABELS[item.category] || '';
+  totalCount.textContent = works.length;
+  emptyState.style.display = 'none';
+  animateFeatured();
+  renderGallery();
+}
+
+function getFilteredWorks() {
+  if (currentFilter === 'all') return works;
+  return works.filter(w => w.category === currentFilter);
+}
+
+function renderGallery() {
+  // Limpiar sin innerHTML para evitar fugas de listeners
+  while (galleryGrid.firstChild) galleryGrid.removeChild(galleryGrid.firstChild);
+
+  const filtered = getFilteredWorks();
+
+  filtered.forEach((item, index) => {
+    const isActive = (index === activeIndex);
+
+    const card = document.createElement('article');
+    card.className = 'work-card' + (isActive ? ' active' : '');
+    card.tabIndex = 0;
+    card.setAttribute('role', 'button');
+    card.setAttribute('aria-label', 'Ver ' + item.title);
+
+    // Badge categoria
+    const catBadge = document.createElement('span');
+    catBadge.className = 'card-category';
+    catBadge.dataset.cat = item.category;
+    catBadge.textContent = CATEGORY_LABELS[item.category] || 'Otros';
+    card.appendChild(catBadge);
+
+    // Boton eliminar (solo admin autenticado)
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'card-remove';
+    removeBtn.type = 'button';
+    removeBtn.title = 'Eliminar';
+    removeBtn.setAttribute('aria-label', 'Eliminar trabajo ' + item.title);
+    removeBtn.textContent = '\u00d7';
+    removeBtn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      removeWork(works.indexOf(item));
+    });
+    card.appendChild(removeBtn);
+
+    // Imagen
+    const img = document.createElement('img');
+    img.src = item.image;
+    img.alt = item.title;
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    img.addEventListener('error', () => {
+      img.src = 'data:image/svg+xml,' + encodeURIComponent(
+        '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300">' +
+        '<rect width="400" height="300" fill="#ede8f4"/>' +
+        '<text x="50%" y="50%" fill="#6b6478" font-family="sans-serif" font-size="14" text-anchor="middle">Imagen no disponible</text>' +
+        '</svg>'
+      );
+      img.alt = 'Imagen no disponible';
+    });
+    card.appendChild(img);
+
+    // Info
+    const info = document.createElement('div');
+    info.className = 'card-info';
+    const strong = document.createElement('strong');
+    strong.textContent = item.title;
+    const span = document.createElement('span');
+    span.textContent = item.description;
+    info.appendChild(strong);
+    info.appendChild(span);
+    card.appendChild(info);
+
+    // Boton cotizar
+    const quoteLink = document.createElement('a');
+    quoteLink.className = 'card-quote';
+    quoteLink.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Hola MrGlass, vi el trabajo "' + item.title + '" en tu galeria y quiero cotizar algo similar')}`;
+    quoteLink.target = '_blank';
+    quoteLink.rel = 'noopener noreferrer';
+    quoteLink.textContent = 'Cotizar';
+    quoteLink.addEventListener('click', (e) => e.stopPropagation());
+    card.appendChild(quoteLink);
+
+    // Eventos de card
+    card.addEventListener('click', () => setFeatured(index));
+    card.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        setFeatured(index);
+      }
+    });
+
+    galleryGrid.appendChild(card);
+  });
+}
+
+// =====================================================
+// Upload
+// =====================================================
 
 function setUploadProgress(percent, text) {
   uploadProgress.classList.add('active');
@@ -152,123 +460,115 @@ function hideUploadProgress() {
     uploadProgress.classList.remove('active');
     uploadProgressFill.style.width = '0%';
     uploadProgressText.textContent = 'Preparando imagen...';
-  }, 550);
+  }, 600);
 }
 
-function updateLightboxImage() {
-  if (!works.length) return;
-  const item = works[activeIndex];
-  lightboxImage.src = item.image;
-  lightboxImage.alt = item.title || 'Imagen en vista completa';
-  lightboxCaption.textContent = item.title || '';
-  lightboxCounter.textContent = (activeIndex + 1) + ' / ' + works.length;
-}
-
-function openLightbox() {
-  if (!works.length || !featuredImage.src) return;
-  updateLightboxImage();
-  lightbox.classList.add('open');
-  document.body.style.overflow = 'hidden';
-}
-
-function closeLightbox() {
-  lightbox.classList.remove('open');
-  document.body.style.overflow = '';
-}
-
-function moveLightbox(direction) {
-  if (!works.length) return;
-  setFeatured(activeIndex + direction);
-  updateLightboxImage();
-}
-
-function setFeatured(index) {
-  if (!works.length) {
-    featuredImage.removeAttribute('src');
-    featuredImage.alt = 'Sin trabajos cargados';
-    featuredTitle.textContent = 'Tu proximo trabajo destacado';
-    featuredDescription.textContent = 'Agrega una foto con descripcion para verla en este espacio principal.';
-    totalCount.textContent = '0';
-    emptyState.style.display = 'block';
+// Preview de imagen al seleccionar
+function showImagePreview(file) {
+  if (!file || !isValidImageFile(file)) {
+    imagePreview.hidden = true;
+    previewImg.src = '';
     return;
   }
-
-  activeIndex = (index + works.length) % works.length;
-  const item = works[activeIndex];
-  featuredImage.src = item.image;
-  featuredImage.alt = item.title;
-  featuredTitle.textContent = item.title;
-  featuredDescription.textContent = item.description;
-  totalCount.textContent = works.length;
-  emptyState.style.display = 'none';
-  animateFeatured();
-  renderGallery();
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    previewImg.src = e.target.result;
+    imagePreview.hidden = false;
+  };
+  reader.readAsDataURL(file);
 }
 
-function renderGallery() {
-  galleryGrid.innerHTML = '';
-  works.forEach((item, index) => {
-    const card = document.createElement('article');
-    card.className = 'work-card' + (index === activeIndex ? ' active' : '');
-    card.tabIndex = 0;
-    card.setAttribute('aria-label', 'Ver ' + item.title);
-    card.innerHTML = `
-      <button class="card-remove" type="button" title="Eliminar" aria-label="Eliminar trabajo">x</button>
-      <img src="${item.image}" alt="${item.title}">
-      <div class="card-info">
-        <strong>${item.title}</strong>
-        <span>${item.description}</span>
-      </div>
-    `;
+function clearImagePreview() {
+  imagePreview.hidden = true;
+  previewImg.src = '';
+  photoInput.value = '';
+  fileLabel.textContent = 'Seleccionar imagen';
+}
 
-    card.addEventListener('click', () => setFeatured(index));
-    card.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        setFeatured(index);
-      }
-    });
-    card.querySelector('.card-remove').addEventListener('click', (event) => {
-      event.stopPropagation();
-      removeWork(index);
-    });
-    galleryGrid.appendChild(card);
+previewRemove.addEventListener('click', clearImagePreview);
+
+photoInput.addEventListener('change', () => {
+  const file = photoInput.files[0];
+  if (file) {
+    if (!isValidImageFile(file)) {
+      showToast('Archivo invalido. Solo JPG, PNG o WEBP (max 8MB)');
+      clearImagePreview();
+      return;
+    }
+    fileLabel.textContent = file.name;
+    showImagePreview(file);
+  } else {
+    fileLabel.textContent = 'Seleccionar imagen';
+    imagePreview.hidden = true;
+  }
+});
+
+// Drag & drop
+['dragenter', 'dragover'].forEach(eventName => {
+  fileDropZone.addEventListener(eventName, (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    fileDropZone.classList.add('dragover');
   });
-}
+});
 
-async function removeWork(index) {
-  const removed = works[index];
-  if (!removed || !confirm('Deseas eliminar este trabajo de Supabase?')) return;
+['dragleave', 'drop'].forEach(eventName => {
+  fileDropZone.addEventListener(eventName, (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    fileDropZone.classList.remove('dragover');
+  });
+});
 
-  const { error } = await supabaseClient
-    .from(GALLERY_TABLE)
-    .delete()
-    .eq('id', removed.id);
+fileDropZone.addEventListener('drop', (e) => {
+  const files = e.dataTransfer.files;
+  if (files && files.length) {
+    photoInput.files = files;
+    photoInput.dispatchEvent(new Event('change'));
+  }
+});
 
-  if (error) {
-    console.error('Error eliminando trabajo:', error);
-    showToast('No se pudo eliminar el trabajo');
+// Submit: deshabilita boton, valida, sube
+photoForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const file = photoInput.files[0];
+  const title = titleInput.value.trim();
+  const description = descriptionInput.value.trim();
+  const category = categoryInput.value;
+
+  if (!file || !title || !description) {
+    showToast('Completa imagen, titulo y descripcion');
+    return;
+  }
+  if (!isValidImageFile(file)) {
+    showToast('Archivo invalido. Solo JPG, PNG o WEBP (max 8MB)');
+    return;
+  }
+  if (!VALID_CATEGORIES.includes(category)) {
+    showToast('Selecciona una categoria valida');
     return;
   }
 
-  if (removed.path) {
-    await supabaseClient.storage.from(GALLERY_BUCKET).remove([removed.path]);
-  }
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Subiendo...';
+  await addWorkFromFile(file, title, description, category);
+  submitBtn.disabled = false;
+  submitBtn.textContent = '+ Agregar a la galeria';
+});
 
-  await loadWorks();
-  showToast('Trabajo eliminado: ' + removed.title);
-}
-
-async function addWorkFromFile(file, title, description) {
+async function addWorkFromFile(file, title, description, category) {
   try {
     setUploadProgress(12, 'Preparando imagen...');
-    const safeName = file.name.toLowerCase().replace(/[^a-z0-9.]+/g, '-');
-    const filePath = `${Date.now()}-${safeName}`;
+    const filePath = safeFileName(file);
 
     setUploadProgress(35, 'Subiendo imagen a Supabase...');
     const { error: uploadError } = await supabaseClient.storage
       .from(GALLERY_BUCKET)
-      .upload(filePath, file, { cacheControl: '3600', upsert: false });
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type
+      });
 
     if (uploadError) throw uploadError;
 
@@ -277,44 +577,130 @@ async function addWorkFromFile(file, title, description) {
     const { error: insertError } = await supabaseClient.from(GALLERY_TABLE).insert({
       titulo: title,
       descripcion: description,
+      categoria: category,
       image_path: filePath,
       image_url: publicData.publicUrl,
       orden: Date.now(),
       activo: true
     });
 
-    if (insertError) throw insertError;
+    if (insertError) {
+      // Rollback: borrar el archivo subido si fallo el insert
+      await supabaseClient.storage.from(GALLERY_BUCKET).remove([filePath]);
+      throw insertError;
+    }
 
     setUploadProgress(100, 'Imagen lista');
     photoForm.reset();
-    fileLabel.textContent = 'Seleccionar imagen';
+    clearImagePreview();
     await loadWorks();
     hideUploadProgress();
-    showToast('Foto agregada a Supabase');
+    showToast('Trabajo agregado a la galeria');
   } catch (error) {
     console.error('Error subiendo trabajo:', error);
     hideUploadProgress();
-    showToast('No se pudo guardar en Supabase');
+    const msg = error && error.message ? error.message : '';
+    if (msg.includes('categoria')) {
+      showToast('Error: falta la columna "categoria" en Supabase. Ejecuta la migracion (ver README.md)');
+    } else if (msg.includes('row-level security') || msg.includes('policy')) {
+      showToast('Error: RLS bloquea la escritura. Revisa las politicas en Supabase.');
+    } else {
+      showToast('No se pudo guardar en Supabase');
+    }
   }
 }
 
-photoInput.addEventListener('change', () => {
-  fileLabel.textContent = photoInput.files[0] ? photoInput.files[0].name : 'Seleccionar imagen';
-});
+// =====================================================
+// Eliminar trabajo (transaccion: storage primero, luego DB)
+// =====================================================
 
-photoForm.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const file = photoInput.files[0];
-  const title = titleInput.value.trim();
-  const description = descriptionInput.value.trim();
+async function removeWork(index) {
+  const removed = works[index];
+  if (!removed) return;
 
-  if (!file || !title || !description) {
-    showToast('Completa imagen, titulo y descripcion');
-    return;
+  const confirmed = await showConfirmModal(
+    'Eliminar trabajo',
+    `Seguro que quieres eliminar "${removed.title}"? Esta accion no se puede deshacer.`,
+    'Si, eliminar'
+  );
+  if (!confirmed) return;
+
+  try {
+    // 1. Borrar archivo de Storage primero
+    if (removed.path) {
+      const { error: storageError } = await supabaseClient
+        .storage
+        .from(GALLERY_BUCKET)
+        .remove([removed.path]);
+      if (storageError) {
+        console.warn('No se pudo borrar el archivo de Storage (continuamos con DB):', storageError);
+      }
+    }
+
+    // 2. Borrar fila de la tabla
+    const { error } = await supabaseClient
+      .from(GALLERY_TABLE)
+      .delete()
+      .eq('id', removed.id);
+
+    if (error) throw error;
+
+    await loadWorks();
+    showToast('Trabajo eliminado: ' + removed.title);
+  } catch (error) {
+    console.error('Error eliminando trabajo:', error);
+    showToast('No se pudo eliminar el trabajo');
   }
+}
 
-  await addWorkFromFile(file, title, description);
-});
+// =====================================================
+// Lightbox
+// =====================================================
+
+function updateLightboxImage() {
+  const filtered = getFilteredWorks();
+  if (!filtered.length) return;
+  const item = filtered[activeIndex];
+  lightboxImage.src = item.image;
+  lightboxImage.alt = item.title || 'Imagen en vista completa';
+
+  // Caption con titulo + descripcion
+  while (lightboxCaption.firstChild) lightboxCaption.removeChild(lightboxCaption.firstChild);
+  const titleNode = document.createElement('strong');
+  titleNode.textContent = item.title || '';
+  lightboxCaption.appendChild(titleNode);
+  if (item.description) {
+    const descNode = document.createElement('small');
+    descNode.textContent = item.description;
+    lightboxCaption.appendChild(descNode);
+  }
+  lightboxCounter.textContent = (activeIndex + 1) + ' / ' + filtered.length;
+
+  // Configurar link de cotizacion del lightbox
+  const msg = `Hola MrGlass, vi el trabajo "${item.title}" en tu galeria y quiero cotizar algo similar`;
+  lightboxQuote.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`;
+}
+
+function openLightbox() {
+  const filtered = getFilteredWorks();
+  if (!filtered.length || !featuredImage.src) return;
+  updateLightboxImage();
+  lightbox.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  // Focus trap inicial
+  setTimeout(() => lightboxClose.focus(), 50);
+}
+
+function closeLightbox() {
+  lightbox.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function moveLightbox(direction) {
+  if (!getFilteredWorks().length) return;
+  setFeatured(activeIndex + direction);
+  updateLightboxImage();
+}
 
 featuredImage.addEventListener('click', openLightbox);
 lightboxClose.addEventListener('click', closeLightbox);
@@ -329,19 +715,51 @@ lightboxNext.addEventListener('click', (event) => {
 lightbox.addEventListener('click', (event) => {
   if (event.target === lightbox) closeLightbox();
 });
+
+// Touch swipe en lightbox
 lightbox.addEventListener('touchstart', (event) => {
   const touch = event.changedTouches[0];
   touchStartX = touch.clientX;
   touchStartY = touch.clientY;
 }, { passive: true });
+
 lightbox.addEventListener('touchend', (event) => {
   const touch = event.changedTouches[0];
   const deltaX = touch.clientX - touchStartX;
   const deltaY = touch.clientY - touchStartY;
   if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY)) {
     moveLightbox(deltaX < 0 ? 1 : -1);
+  } else if (deltaY > 100 && Math.abs(deltaY) > Math.abs(deltaX)) {
+    // Swipe down para cerrar
+    closeLightbox();
   }
 }, { passive: true });
+
+// =====================================================
+// Filtros
+// =====================================================
+
+filterChips.addEventListener('click', (event) => {
+  const chip = event.target.closest('.chip');
+  if (!chip) return;
+  const filter = chip.dataset.filter;
+  if (!filter) return;
+
+  currentFilter = filter;
+  activeIndex = 0;
+
+  // Actualizar UI de chips
+  filterChips.querySelectorAll('.chip').forEach(c => {
+    c.classList.toggle('active', c === chip);
+    c.setAttribute('aria-selected', c === chip ? 'true' : 'false');
+  });
+
+  setFeatured(0);
+});
+
+// =====================================================
+// Navegacion
+// =====================================================
 
 document.getElementById('prevBtn').addEventListener('click', () => setFeatured(activeIndex - 1));
 document.getElementById('nextBtn').addEventListener('click', () => setFeatured(activeIndex + 1));
@@ -352,24 +770,27 @@ document.getElementById('qrShortcut').addEventListener('click', () => {
   qrUrlInput.focus();
 });
 
-document.getElementById('loadDemo').addEventListener('click', async () => {
-  const rows = demoItems.map((item, index) => ({
-    titulo: item.title,
-    descripcion: item.description,
-    image_url: item.image,
-    image_path: null,
-    orden: index + 1,
-    activo: true
-  }));
-  const { error } = await supabaseClient.from(GALLERY_TABLE).insert(rows);
-  if (error) {
-    console.error('Error restaurando ejemplos:', error);
-    showToast('No se pudieron cargar ejemplos');
+// Teclado: navegacion con flechas
+document.addEventListener('keydown', (event) => {
+  if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA' || event.target.tagName === 'SELECT') return;
+  if (modalBackdrop.hidden === false) return;
+
+  if (event.key === 'Escape' && lightbox.classList.contains('open')) {
+    closeLightbox();
     return;
   }
-  await loadWorks();
-  showToast('Ejemplos agregados a Supabase');
+  if (lightbox.classList.contains('open')) {
+    if (event.key === 'ArrowRight') moveLightbox(1);
+    if (event.key === 'ArrowLeft') moveLightbox(-1);
+    return;
+  }
+  if (event.key === 'ArrowRight') setFeatured(activeIndex + 1);
+  if (event.key === 'ArrowLeft') setFeatured(activeIndex - 1);
 });
+
+// =====================================================
+// QR
+// =====================================================
 
 function normalizeQrUrl(value) {
   const trimmed = value.trim();
@@ -378,23 +799,26 @@ function normalizeQrUrl(value) {
   return 'https://' + trimmed;
 }
 
-function updateQrCode(silent = false) {
+function updateQrCode(silent) {
   const cleanBaseUrl = window.location.origin + window.location.pathname;
   const url = normalizeQrUrl(qrUrlInput.value || cleanBaseUrl);
-  
+
   if (!url) {
     showToast('Escribe la URL publica de la galeria');
     return;
   }
-  
+
   const qrSrc = qrApiBase + '?size=420x420&format=png&data=' + encodeURIComponent(url);
   qrImage.src = qrSrc;
+  qrImage.onerror = () => {
+    qrNote.textContent = 'No se pudo generar el QR. Verifica tu conexion a internet.';
+  };
   downloadQr.href = qrSrc;
-  
-  qrNote.textContent = url.includes('127.0.0.1') || url.includes('localhost')
+
+  qrNote.textContent = (url.includes('127.0.0.1') || url.includes('localhost'))
     ? 'Este QR es solo para pruebas en este computador. Para clientes, reemplazalo por la URL publica cuando publiquemos la galeria.'
     : 'Este QR abrira directo la galeria publicada: ' + url;
-    
+
   if (!silent) showToast('Codigo QR actualizado');
 }
 
@@ -405,17 +829,10 @@ qrUrlInput.addEventListener('keydown', (event) => {
     updateQrCode();
   }
 });
-document.getElementById('clearGallery').addEventListener('click', async () => {
-  if (!confirm('Deseas desactivar todos los trabajos de la galeria?')) return;
-  const { error } = await supabaseClient.from(GALLERY_TABLE).update({ activo: false }).eq('activo', true);
-  if (error) {
-    console.error('Error limpiando galeria:', error);
-    showToast('No se pudo limpiar la galeria');
-    return;
-  }
-  await loadWorks();
-  showToast('Galeria limpiada');
-});
+
+// =====================================================
+// Login / Logout
+// =====================================================
 
 loginBtn.addEventListener('click', async () => {
   const email = adminEmail.value.trim().toLowerCase();
@@ -424,7 +841,11 @@ loginBtn.addEventListener('click', async () => {
     showToast('Ingresa correo y contrasena');
     return;
   }
+  loginBtn.disabled = true;
+  loginBtn.textContent = 'Entrando...';
   const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+  loginBtn.disabled = false;
+  loginBtn.textContent = 'Entrar';
   if (error) {
     console.error('Error login:', error);
     loginMessage.textContent = 'No se pudo entrar: ' + explainAuthError(error.message);
@@ -434,7 +855,7 @@ loginBtn.addEventListener('click', async () => {
   loginMessage.textContent = '';
   adminPassword.value = '';
   await refreshAuthState();
-  showToast('Modo administrador activo');
+  showToast('Sesion iniciada');
 });
 
 magicLinkBtn.addEventListener('click', async () => {
@@ -457,7 +878,7 @@ magicLinkBtn.addEventListener('click', async () => {
     showToast('No se pudo enviar enlace');
     return;
   }
-  loginMessage.textContent = 'Te envie un enlace de acceso al correo. Abre ese enlace y volveras al modo administrador.';
+  loginMessage.textContent = 'Te enviamos un enlace de acceso al correo. Abre ese enlace y volveras al modo administrador.';
   showToast('Enlace enviado');
 });
 
@@ -469,23 +890,23 @@ logoutBtn.addEventListener('click', async () => {
 
 supabaseClient.auth.onAuthStateChange(() => refreshAuthState());
 
-document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') closeLightbox();
-  if (lightbox.classList.contains('open')) {
-    if (event.key === 'ArrowRight') moveLightbox(1);
-    if (event.key === 'ArrowLeft') moveLightbox(-1);
-    return;
-  }
-  if (event.key === 'ArrowRight') setFeatured(activeIndex + 1);
-  if (event.key === 'ArrowLeft') setFeatured(activeIndex - 1);
-});
+// =====================================================
+// Service Worker (PWA)
+// =====================================================
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-  navigator.serviceWorker.register('./service-worker.js');
-});
+    navigator.serviceWorker.register('./service-worker.js').catch(err => {
+      console.warn('No se pudo registrar el service worker:', err);
+    });
+  });
 }
 
+// =====================================================
+// Init
+// =====================================================
+
+footerYear.textContent = new Date().getFullYear();
 syncMode();
 updateQrCode(true);
 refreshAuthState();
