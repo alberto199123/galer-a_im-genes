@@ -128,15 +128,18 @@
             </div>
 
             <div class="admin-secure">
-              <h2 class="panel-title">Agregar trabajo</h2>
-              <p class="panel-copy">Carga una imagen, escribe un titulo claro, elige la categoria y suma una descripcion breve.</p>
+              <div class="form-header" id="formHeader">
+                <h2 class="panel-title" id="formTitle">Agregar trabajo</h2>
+                <span class="edit-badge" id="editBadge" hidden>Editando</span>
+              </div>
+              <p class="panel-copy" id="formCopy">Carga una imagen, escribe un titulo claro, elige la categoria y suma una descripcion breve.</p>
               <button class="btn btn-secondary" id="logoutBtn" type="button" style="width:100%;margin-bottom:14px;">Cerrar sesion</button>
 
               <form id="photoForm" novalidate>
                 <label class="file-drop" for="photoInput" id="fileDropZone">
                   <span id="fileLabel">Seleccionar imagen</span>
-                  <small>JPG, PNG o WEBP. Arrastra tu foto aqui o haz click.</small>
-                  <input id="photoInput" type="file" accept="image/jpeg,image/png,image/webp,image/*" required aria-required="true" />
+                  <small id="fileHint">JPG, PNG o WEBP. Arrastra tu foto aqui o haz click.</small>
+                  <input id="photoInput" type="file" accept="image/jpeg,image/png,image/webp,image/*" aria-required="true" />
                 </label>
 
                 <!-- Preview de imagen antes de subir -->
@@ -144,6 +147,10 @@
                   <img id="previewImg" alt="Vista previa de la imagen seleccionada" />
                   <button type="button" class="preview-remove" id="previewRemove" aria-label="Quitar imagen seleccionada">&times;</button>
                 </div>
+                <p class="image-current-hint" id="imageCurrentHint" hidden>
+                  Imagen actual: <a href="#" id="imageCurrentLink" target="_blank" rel="noopener noreferrer">ver</a>.
+                  Sube una nueva solo si quieres reemplazarla.
+                </p>
 
                 <div class="upload-progress" id="uploadProgress" aria-live="polite">
                   <div class="upload-track"><span id="uploadProgressFill"></span></div>
@@ -162,6 +169,7 @@
                     <option value="aluminio">Aluminio</option>
                     <option value="mamparas">Mamparas</option>
                     <option value="espejos">Espejos</option>
+                    <option value="otros">Otros</option>
                   </select>
                 </div>
 
@@ -172,6 +180,7 @@
 
                 <div class="form-actions">
                   <button class="btn btn-primary" id="submitBtn" type="submit">+ Agregar a la galeria</button>
+                  <button class="btn btn-secondary" id="cancelEditBtn" type="button" hidden>Cancelar edicion</button>
                 </div>
               </form>
             </div>
