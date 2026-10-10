@@ -3,53 +3,109 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Galeria de Trabajos</title>
+  <meta name="theme-color" content="#6d28d9" />
+  <meta name="description" content="MrGlass - Galeria de trabajos de vidrieria y aluminio en Chillan. Vidrios templados, mamparas, espejos y cortinas de aluminio a medida. Solicita tu cotizacion por WhatsApp." />
+  <meta name="author" content="MrGlass" />
+  <meta name="keywords" content="vidrios Chillan, aluminio Chillan, mamparas, espejos, vidrieria, MrGlass" />
+
+  <!-- Open Graph para redes sociales -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="MrGlass - Galeria de Trabajos" />
+  <meta property="og:description" content="Vidrieria y aluminio en Chillan. Mira nuestros trabajos y solicita tu cotizacion." />
+  <meta property="og:locale" content="es_CL" />
+
+  <!-- Content Security Policy: bloquea scripts/imagenes externas no autorizadas -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    img-src 'self' https://emtddcurmnmvbhgysldh.supabase.co https://api.qrserver.com data:;
+    script-src 'self' https://cdn.jsdelivr.net;
+    style-src 'self' 'unsafe-inline';
+    font-src 'self';
+    connect-src 'self' https://emtddcurmnmvbhgysldh.supabase.co https://api.qrserver.com;
+    manifest-src 'self';
+    frame-ancestors 'none';
+  " />
+  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
+
+  <title>MrGlass - Galeria de Trabajos | Vidrieria y Aluminio Chillan</title>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="style.css">
   <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="icon.svg" />
+  <link rel="apple-touch-icon" href="icon.svg" />
 </head>
 <body>
-  <button class="mode-toggle" id="modeToggle" type="button">Modo admin</button>
+  <!-- Boton flotante de WhatsApp (siempre visible para clientes) -->
+  <a class="whatsapp-fab"
+     href="https://wa.me/56986341138?text=Hola%20MrGlass%2C%20vi%20tu%20galeria%20y%20quiero%20cotizar%20un%20trabajo"
+     target="_blank" rel="noopener noreferrer"
+     aria-label="Contactar por WhatsApp"
+     title="Escribenos por WhatsApp">
+    <svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true" focusable="false">
+      <path fill="currentColor" d="M16.04 4c-6.62 0-12 5.38-12 12 0 2.11.55 4.17 1.6 5.99L4 28l6.18-1.62A11.93 11.93 0 0 0 16.04 28c6.62 0 12-5.38 12-12s-5.38-12-12-12zm0 21.82c-1.84 0-3.65-.49-5.23-1.42l-.37-.22-3.67.96.98-3.58-.24-.37a9.82 9.82 0 0 1-1.5-5.21c0-5.43 4.42-9.85 9.85-9.85s9.85 4.42 9.85 9.85-4.42 9.85-9.85 9.85zm5.41-7.39c-.3-.15-1.77-.87-2.04-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.95 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51l-.57-.01c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.06 2.88 1.21 3.08c.15.2 2.09 3.2 5.07 4.48.71.31 1.26.49 1.69.62.71.23 1.36.2 1.87.12.57-.08 1.77-.72 2.02-1.41.25-.69.25-1.29.17-1.41-.07-.13-.27-.2-.57-.35z"/>
+    </svg>
+    <span class="whatsapp-fab-label">Cotizar</span>
+  </a>
+
+  <!-- Toggle de modo admin (solo visible cuando estas en modo admin) -->
+  <button class="mode-toggle" id="modeToggle" type="button" aria-label="Cambiar entre vista cliente y administrador">Vista cliente</button>
+
   <main class="page">
+    <!-- HERO -->
     <section class="hero" aria-label="Presentacion de galeria">
       <div class="intro">
         <div>
           <div class="brand-row">
-            <div class="brand-mark" aria-label="Marca">MrGlass</div>
-            <div class="status-pill"><span class="status-dot"></span>Portafolio disponible</div>
+            <div class="brand-mark" aria-label="Marca MrGlass">MrGlass</div>
+            <div class="status-pill"><span class="status-dot" aria-hidden="true"></span>Trabajos disponibles en Chillan</div>
           </div>
-          <h1>Galeria de trabajos</h1>
-          <p class="lead">Trabajos realizados, presentados de forma simple, limpia y directa.</p>
+          <h1>Galeria de <span class="accent-word">trabajos</span></h1>
+          <p class="lead">Vidrieria y aluminio a medida en Chillan. Vidrios templados, mamparas, espejos y cortinas de aluminio con acabados prolijos y entrega garantizada.</p>
           <div class="hero-actions">
-            <button class="btn btn-primary admin-only" id="addShortcut" type="button">+ Agregar nueva foto</button>
+            <button class="btn btn-primary admin-only" id="addShortcut" type="button">+ Agregar nuevo trabajo</button>
             <button class="btn btn-secondary" id="nextShortcut" type="button">Ver siguiente trabajo</button>
             <button class="btn btn-secondary admin-only" id="qrShortcut" type="button">Generar QR</button>
+            <a class="btn btn-accent"
+               href="https://wa.me/56986341138?text=Hola%20MrGlass%2C%20vi%20tu%20galeria%20y%20quiero%20cotizar%20un%20trabajo"
+               target="_blank" rel="noopener noreferrer">
+              Solicitar cotizacion
+            </a>
           </div>
         </div>
         <div class="stats" aria-label="Resumen de galeria">
-          <div class="stat"><strong id="totalCount">0</strong><span>trabajos cargados</span></div>
-          <div class="stat"><strong>Zoom</strong><span>transicion llamativa</span></div>
-          <div class="stat admin-only"><strong>Admin</strong><span>carga y QR privado</span></div>
+          <div class="stat"><strong id="totalCount">0</strong><span>trabajos realizados</span></div>
+          <div class="stat"><strong>4</strong><span>rubros: vidrios, aluminio, mamparas y espejos</span></div>
+          <div class="stat"><strong>6</strong><span>dias a la semana en Chillan</span></div>
         </div>
       </div>
 
       <article class="showcase" aria-live="polite">
         <div class="nav-controls">
-          <button class="icon-btn" id="prevBtn" type="button" title="Trabajo anterior" aria-label="Trabajo anterior">‹</button>
-          <button class="icon-btn" id="nextBtn" type="button" title="Trabajo siguiente" aria-label="Trabajo siguiente">›</button>
+          <button class="icon-btn" id="prevBtn" type="button" title="Trabajo anterior" aria-label="Trabajo anterior">&#8249;</button>
+          <button class="icon-btn" id="nextBtn" type="button" title="Trabajo siguiente" aria-label="Trabajo siguiente">&#8250;</button>
         </div>
-        <img class="featured-img" id="featuredImage" alt="Trabajo destacado" />
+        <!-- Skeleton inicial mientras carga -->
+        <div class="showcase-skeleton" id="showcaseSkeleton" aria-hidden="true">
+          <div class="skeleton-img"></div>
+          <div class="skeleton-line"></div>
+          <div class="skeleton-line short"></div>
+        </div>
+        <img class="featured-img" id="featuredImage" alt="" decoding="async" />
         <div class="featured-info">
           <span class="featured-kicker">Proyecto destacado</span>
           <h2 class="featured-title" id="featuredTitle">Cargando galeria</h2>
-          <p id="featuredDescription">Agrega tus trabajos para comenzar.</p>
+          <p id="featuredDescription">Un momento por favor...</p>
+          <span class="featured-category" id="featuredCategory"></span>
         </div>
       </article>
     </section>
 
+    <!-- SECCION DE TRABAJOS -->
     <section class="content-band">
       <div class="workspace">
-        <!-- Columna de administracion con scroll independiente -->
+        <!-- COLUMNA ADMIN (oculta por defecto) -->
         <div class="admin-column">
           <aside class="panel form-panel admin-only" aria-label="Formulario para agregar trabajos">
             <div class="login-panel" id="loginPanel">
@@ -57,31 +113,38 @@
               <p class="panel-copy">Inicia sesion para subir, borrar y administrar las imagenes guardadas en Supabase.</p>
               <div class="field">
                 <label for="adminEmail">Correo</label>
-                <input id="adminEmail" type="text" autocomplete="email" placeholder="tu-correo@ejemplo.com" />
+                <input id="adminEmail" type="email" autocomplete="email" placeholder="tu-correo@ejemplo.com" aria-required="true" />
               </div>
               <div class="field">
                 <label for="adminPassword">Contrasena</label>
-                <input id="adminPassword" type="password" autocomplete="current-password" placeholder="Contrasena" />
+                <input id="adminPassword" type="password" autocomplete="current-password" placeholder="Contrasena" aria-required="true" />
               </div>
               <div class="form-actions">
                 <button class="btn btn-primary" id="loginBtn" type="button">Entrar</button>
                 <button class="btn btn-secondary" id="magicLinkBtn" type="button">Enviar enlace de acceso</button>
               </div>
-              <p class="qr-note" id="loginMessage"></p>
+              <p class="qr-note" id="loginMessage" role="status"></p>
               <p class="qr-note" id="projectMessage"></p>
             </div>
 
             <div class="admin-secure">
               <h2 class="panel-title">Agregar trabajo</h2>
-              <p class="panel-copy">Carga una imagen, escribe un titulo claro y suma una descripcion breve del resultado.</p>
+              <p class="panel-copy">Carga una imagen, escribe un titulo claro, elige la categoria y suma una descripcion breve.</p>
               <button class="btn btn-secondary" id="logoutBtn" type="button" style="width:100%;margin-bottom:14px;">Cerrar sesion</button>
 
-              <form id="photoForm">
-                <label class="file-drop" for="photoInput">
+              <form id="photoForm" novalidate>
+                <label class="file-drop" for="photoInput" id="fileDropZone">
                   <span id="fileLabel">Seleccionar imagen</span>
-                  <small>JPG, PNG o WEBP. La foto queda guardada en este navegador.</small>
-                  <input id="photoInput" type="file" accept="image/*" required />
+                  <small>JPG, PNG o WEBP. Arrastra tu foto aqui o haz click.</small>
+                  <input id="photoInput" type="file" accept="image/jpeg,image/png,image/webp,image/*" required aria-required="true" />
                 </label>
+
+                <!-- Preview de imagen antes de subir -->
+                <div class="image-preview" id="imagePreview" hidden>
+                  <img id="previewImg" alt="Vista previa de la imagen seleccionada" />
+                  <button type="button" class="preview-remove" id="previewRemove" aria-label="Quitar imagen seleccionada">&times;</button>
+                </div>
+
                 <div class="upload-progress" id="uploadProgress" aria-live="polite">
                   <div class="upload-track"><span id="uploadProgressFill"></span></div>
                   <small id="uploadProgressText">Preparando imagen...</small>
@@ -89,34 +152,42 @@
 
                 <div class="field" style="margin-top: 14px;">
                   <label for="titleInput">Titulo del trabajo</label>
-                  <input id="titleInput" type="text" maxlength="60" placeholder="Ej: Instalacion completa en cocina" required />
+                  <input id="titleInput" type="text" maxlength="60" placeholder="Ej: Mampara de vidrio templado en bano" required aria-required="true" />
+                </div>
+
+                <div class="field">
+                  <label for="categoryInput">Categoria</label>
+                  <select id="categoryInput" required aria-required="true">
+                    <option value="vidrios">Vidrios</option>
+                    <option value="aluminio">Aluminio</option>
+                    <option value="mamparas">Mamparas</option>
+                    <option value="espejos">Espejos</option>
+                  </select>
                 </div>
 
                 <div class="field">
                   <label for="descriptionInput">Descripcion</label>
-                  <textarea id="descriptionInput" maxlength="220" placeholder="Describe el trabajo, el acabado o el problema que resolviste." required></textarea>
+                  <textarea id="descriptionInput" maxlength="280" placeholder="Describe el trabajo, el acabado o el problema que resolviste." required aria-required="true"></textarea>
                 </div>
 
                 <div class="form-actions">
-                  <button class="btn btn-primary" type="submit">+ Agregar a la galeria</button>
-                  <button class="btn btn-secondary" id="loadDemo" type="button">Restaurar ejemplos</button>
-                  <button class="btn btn-danger" id="clearGallery" type="button">Limpiar galeria</button>
+                  <button class="btn btn-primary" id="submitBtn" type="submit">+ Agregar a la galeria</button>
                 </div>
               </form>
             </div>
           </aside>
 
-          <!-- Panel QR ahora comparte la clase 'panel' y vive dentro de 'admin-column' -->
+          <!-- PANEL QR -->
           <div class="panel qr-panel admin-only" id="qrPanel">
               <h2 class="panel-title">QR para clientes</h2>
-              <p class="panel-copy">Cuando la galeria este publicada, pega aqui la URL final para crear un QR que abra directo esta pagina.</p>
+              <p class="panel-copy">Pega la URL publica de tu galeria para crear un QR que abra directo esta pagina.</p>
               <div class="field">
                 <label for="qrUrlInput">URL publica de la galeria</label>
-                <input id="qrUrlInput" type="text" placeholder="https://tusitio.com/galeria" />
+                <input id="qrUrlInput" type="url" placeholder="https://tusitio.com/galeria" />
               </div>
               <div class="form-actions">
                 <button class="btn btn-primary" id="generateQr" type="button">Generar codigo QR</button>
-                <a class="btn btn-secondary" id="downloadQr" href="#" download="qr-galeria-trabajos.png">Descargar QR</a>
+                <a class="btn btn-secondary" id="downloadQr" href="#" download="qr-mrglass.png">Descargar QR</a>
               </div>
               <div class="qr-preview">
                 <img id="qrImage" alt="Codigo QR de la galeria" />
@@ -125,28 +196,114 @@
           </div>
         </div>
 
+        <!-- COLUMNA GALERIA -->
         <section aria-label="Trabajos cargados" class="gallery-column">
           <div class="gallery-head">
             <div>
               <h2>Trabajos realizados</h2>
-              <p>Selecciona cualquier imagen para verla grande con efecto de zoom.</p>
+              <p>Selecciona cualquier imagen para verla en grande con efecto de zoom.</p>
             </div>
           </div>
-          <div class="empty" id="emptyState">Todavia no hay trabajos cargados. Agrega la primera foto desde el formulario.</div>
+
+          <!-- Filtros por categoria -->
+          <div class="filter-chips" id="filterChips" role="tablist" aria-label="Filtrar por categoria">
+            <button class="chip active" type="button" data-filter="all" role="tab" aria-selected="true">Todos</button>
+            <button class="chip" type="button" data-filter="vidrios" role="tab" aria-selected="false">Vidrios</button>
+            <button class="chip" type="button" data-filter="aluminio" role="tab" aria-selected="false">Aluminio</button>
+            <button class="chip" type="button" data-filter="mamparas" role="tab" aria-selected="false">Mamparas</button>
+            <button class="chip" type="button" data-filter="espejos" role="tab" aria-selected="false">Espejos</button>
+          </div>
+
+          <div class="empty" id="emptyState">Todavia no hay trabajos cargados. Cuando el administrador suba el primer trabajo, aparecera aqui.</div>
           <div class="gallery-grid" id="galleryGrid"></div>
         </section>
       </div>
     </section>
+
+    <!-- SECCION CONTACTO + FOOTER -->
+    <section class="contact-section" aria-label="Contacto y ubicacion">
+      <div class="contact-wrap">
+        <div class="contact-card">
+          <h2>Solicita tu cotizacion</h2>
+          <p class="contact-copy">Cuentanos que necesitas. Te respondemos por WhatsApp en horario de atencion.</p>
+          <a class="btn btn-accent btn-large"
+             href="https://wa.me/56986341138?text=Hola%20MrGlass%2C%20quiero%20cotizar%20un%20trabajo"
+             target="_blank" rel="noopener noreferrer">
+            Escribir por WhatsApp
+          </a>
+          <a class="btn btn-secondary btn-large" href="mailto:alberto.dacruz.r@outlook.com">
+            Enviar correo
+          </a>
+        </div>
+
+        <div class="info-card">
+          <h3>Horario de atencion</h3>
+          <ul class="info-list">
+            <li><span>Lunes a viernes:</span> 9:00 - 17:30 hrs (de corrido)</li>
+            <li><span>Sabado:</span> 9:00 - 13:00 hrs</li>
+            <li><span>Domingo:</span> cerrado</li>
+          </ul>
+        </div>
+
+        <div class="info-card">
+          <h3>Taller</h3>
+          <ul class="info-list">
+            <li><span>Direccion:</span> Los Copihues 786, Chillan</li>
+            <li><span>WhatsApp:</span> +569 8634 1138</li>
+            <li><span>Correo:</span> alberto.dacruz.r@outlook.com</li>
+          </ul>
+          <a class="map-link"
+             href="https://www.google.com/maps/search/?api=1&query=Los+Copihues+786+Chillan+Chile"
+             target="_blank" rel="noopener noreferrer">
+            Ver en Google Maps &rarr;
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <footer class="site-footer">
+      <div class="footer-wrap">
+        <div class="footer-brand">
+          <strong>MrGlass</strong>
+          <span>Vidrieria y aluminio a medida - Chillan</span>
+        </div>
+        <div class="footer-meta">
+          <span>&copy; <span id="footerYear"></span> MrGlass. Todos los derechos reservados.</span>
+          <button class="footer-admin-link" id="footerAdminHint" type="button" aria-label="Activar modo administrador">Acceso</button>
+        </div>
+      </div>
+    </footer>
   </main>
 
+  <!-- Toast -->
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <!-- Modal genérico (reemplaza confirm/alert nativos) -->
+  <div class="modal-backdrop" id="modalBackdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <h3 class="modal-title" id="modalTitle"></h3>
+      <p class="modal-body" id="modalBody"></p>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="modalCancel" type="button">Cancelar</button>
+        <button class="btn btn-danger" id="modalConfirm" type="button">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lightbox -->
   <div class="lightbox" id="lightbox" aria-modal="true" role="dialog" aria-label="Vista completa de imagen">
     <div class="lightbox-counter" id="lightboxCounter">1 / 1</div>
-    <button class="lightbox-close" id="lightboxClose" type="button" aria-label="Cerrar vista completa">x</button>
+    <button class="lightbox-close" id="lightboxClose" type="button" aria-label="Cerrar vista completa">&times;</button>
     <button class="lightbox-nav lightbox-prev" id="lightboxPrev" type="button" aria-label="Imagen anterior">&lsaquo;</button>
     <img id="lightboxImage" alt="Imagen en vista completa" />
     <button class="lightbox-nav lightbox-next" id="lightboxNext" type="button" aria-label="Imagen siguiente">&rsaquo;</button>
     <div class="lightbox-caption" id="lightboxCaption"></div>
+    <a class="lightbox-quote"
+       id="lightboxQuote"
+       href="#"
+       target="_blank" rel="noopener noreferrer">
+      Cotizar este trabajo por WhatsApp
+    </a>
   </div>
 
   <script src="script.js"></script>
